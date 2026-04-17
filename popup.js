@@ -4,8 +4,11 @@ const DEFAULT_SETTINGS = {
   qbtUrl: "http://localhost:8080",
   qbtUsername: "",
   qbtPassword: "",
-  interceptClicks: true,
+  interceptClicks: false,
+  interceptHeadCheck: false,
   pauseOnAdd: false,
+  category: "",
+  savePath: "",
   showNotifications: true,
 };
 

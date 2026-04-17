@@ -1,36 +1,30 @@
 /**
  * content.js - injected into every page.
  *
- * Intercepts clicks on torrent-related links and sends them to
- * the background script which forwards them to qBittorrent.
+ * Intercepts clicks on torrent links and sends them to the background script.
+ * Only active when the user has enabled click interception in settings.
  *
- * Detection tiers (in order of confidence):
- *   1. magnet: URI                   -> immediate send
- *   2. .torrent extension in path    -> immediate send (proxy via extension)
- *   3. Jackett/Prowlarr API key URL  -> immediate send (qBt fetches directly)
- *   4. Other HTTP link               -> HEAD request to check Content-Type
- *   5. Anything else                 -> ignored
- *
- * IMPORTANT: e.preventDefault() must be called synchronously (before any
- * await), so settings are cached in module scope and updated via
- * storage.onChanged rather than fetched on each click.
+ * Settings cache: settings are read once at load and kept in sync via
+ * storage.onChanged. This avoids an async gap before e.preventDefault(),
+ * which would let the browser navigate before we can cancel it.
  */
 (function () {
   if (window.__qbtContentInjected) return;
   window.__qbtContentInjected = true;
 
-  // --- cached settings (avoids async gap before e.preventDefault) -----------
+  // --- cached settings ------------------------------------------------------
 
-  let interceptClicks = true;
+  let interceptClicks   = false; // off by default
+  let interceptHeadCheck = false;
 
-  browser.storage.local.get({ interceptClicks: true }).then((s) => {
-    interceptClicks = s.interceptClicks;
+  browser.storage.local.get({ interceptClicks: false, interceptHeadCheck: false }).then((s) => {
+    interceptClicks    = s.interceptClicks;
+    interceptHeadCheck = s.interceptHeadCheck;
   });
 
   browser.storage.onChanged.addListener((changes) => {
-    if ("interceptClicks" in changes) {
-      interceptClicks = changes.interceptClicks.newValue;
-    }
+    if ("interceptClicks"    in changes) interceptClicks    = changes.interceptClicks.newValue;
+    if ("interceptHeadCheck" in changes) interceptHeadCheck = changes.interceptHeadCheck.newValue;
   });
 
   // --- detection helpers ----------------------------------------------------
@@ -39,37 +33,31 @@
     return typeof href === "string" && href.startsWith("magnet:");
   }
 
-  function isDefinitelyTorrent(href) {
+  // Patterns that are definitely torrent downloads -- no network check needed.
+  function isDefiniteTorrent(href) {
     if (!href || !href.startsWith("http")) return false;
     try {
-      const u = new URL(href);
+      const u    = new URL(href);
       const path = u.pathname.toLowerCase();
 
-      // Path ends with .torrent
       if (path.endsWith(".torrent")) return true;
-
-      // Jackett: /dl/<indexer>/ with jackett_apikey param
-      if (path.includes("/dl/") && u.searchParams.has("jackett_apikey")) return true;
-
-      // Prowlarr: /dl/<id> with apikey param
-      if (path.includes("/dl/") && u.searchParams.has("apikey")) return true;
-
-      // file= query parameter ends with .torrent (some indexers)
+      // Jackett:   /dl/<indexer>/  with jackett_apikey param
+      // Prowlarr:  /dl/<id>        with apikey param
+      if (path.includes("/dl/") &&
+          (u.searchParams.has("jackett_apikey") || u.searchParams.has("apikey"))) return true;
+      // file= query param names the file (some indexers)
       if ((u.searchParams.get("file") || "").toLowerCase().endsWith(".torrent")) return true;
-
-    } catch { /* ignore invalid URLs */ }
+    } catch { /* malformed URL */ }
     return false;
   }
 
+  // Candidate for HEAD check: HTTP/HTTPS link that isn't obviously a webpage.
   function mightBeTorrent(href) {
-    // Candidate for HEAD check: any http/https link that isn't obviously
-    // a regular web page (html, images, scripts, etc.)
     if (!href || !href.startsWith("http")) return false;
     try {
-      const u = new URL(href);
-      const path = u.pathname.toLowerCase();
+      const path = new URL(href).pathname.toLowerCase();
       if (path === "/" || path === "") return false;
-      if (/\.(html?|php|asp|jsp|aspx|cfm|png|jpe?g|gif|svg|webp|css|js|mjs|xml|json|txt|pdf)$/.test(path)) return false;
+      if (/\.(html?|php|asp|aspx|jsp|cfm|png|jpe?g|gif|svg|webp|css|js|mjs|xml|json|txt|pdf)$/.test(path)) return false;
       return true;
     } catch { return false; }
   }
@@ -77,8 +65,8 @@
   // --- click handler --------------------------------------------------------
 
   document.addEventListener("click", async (e) => {
-    if (!e.isTrusted) return;
-    if (!interceptClicks) return; // synchronous, no async gap
+    if (!e.isTrusted)      return;
+    if (!interceptClicks)  return; // synchronous check, no async gap
 
     let target = e.target;
     while (target && target.tagName !== "A") target = target.parentElement;
@@ -87,7 +75,7 @@
     const href = target.href;
     if (!href) return;
 
-    // Tier 1: magnet
+    // Tier 1: magnet URI
     if (isMagnet(href)) {
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -95,26 +83,27 @@
       return;
     }
 
-    // Tier 2 & 3: known torrent URL patterns
-    if (isDefinitelyTorrent(href)) {
+    // Tier 2: known-safe URL patterns
+    if (isDefiniteTorrent(href)) {
       e.preventDefault();
       e.stopImmediatePropagation();
       browser.runtime.sendMessage({ type: "ADD_TORRENT", url: href });
       return;
     }
 
-    // Tier 4: uncertain - HEAD check (prevent default first to allow async)
-    if (mightBeTorrent(href)) {
+    // Tier 3: HEAD check for ambiguous links (only if user opted in)
+    if (interceptHeadCheck && mightBeTorrent(href)) {
+      // Prevent default NOW before the async gap.
+      // If it turns out not to be a torrent, background.js opens it normally.
       e.preventDefault();
       e.stopImmediatePropagation();
       const isTorrent = await browser.runtime.sendMessage({ type: "CHECK_URL", url: href });
       if (isTorrent) {
         browser.runtime.sendMessage({ type: "ADD_TORRENT", url: href });
       } else {
-        // Not a torrent - open normally via background (avoids popup blocker)
         browser.runtime.sendMessage({ type: "OPEN_URL", url: href });
       }
     }
-  }, true); // capture phase to beat other handlers
+  }, true);
 
 })();

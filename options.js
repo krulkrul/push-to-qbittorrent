@@ -4,34 +4,52 @@ const DEFAULT_SETTINGS = {
   qbtUrl: "http://localhost:8080",
   qbtUsername: "",
   qbtPassword: "",
-  interceptClicks: true,
+  interceptClicks: false,
+  interceptHeadCheck: false,
   pauseOnAdd: false,
+  category: "",
+  savePath: "",
   showNotifications: true,
 };
 
-const urlEl       = document.getElementById("qbt-url");
-const userEl      = document.getElementById("qbt-user");
-const passEl      = document.getElementById("qbt-pass");
-const interceptEl = document.getElementById("intercept-clicks");
-const pauseEl     = document.getElementById("pause-on-add");
-const notifEl     = document.getElementById("notifications");
-const statusEl    = document.getElementById("status");
-const btnSave     = document.getElementById("btn-save");
-const btnTest     = document.getElementById("btn-test");
+const urlEl           = document.getElementById("qbt-url");
+const userEl          = document.getElementById("qbt-user");
+const passEl          = document.getElementById("qbt-pass");
+const interceptEl     = document.getElementById("intercept-clicks");
+const headCheckEl     = document.getElementById("intercept-head-check");
+const interceptOptEl  = document.getElementById("intercept-options");
+const pauseEl         = document.getElementById("pause-on-add");
+const categoryEl      = document.getElementById("category");
+const savePathEl      = document.getElementById("save-path");
+const notifEl         = document.getElementById("notifications");
+const statusEl        = document.getElementById("status");
+const btnSave         = document.getElementById("btn-save");
+const btnTest         = document.getElementById("btn-test");
+
+// Show/hide HEAD-check sub-option based on intercept-clicks toggle
+function updateInterceptOptions() {
+  interceptOptEl.style.display = interceptEl.checked ? "" : "none";
+}
 
 // -- load saved settings (override HTML defaults) --------------------------
 
 browser.storage.local.get(DEFAULT_SETTINGS).then((s) => {
   console.log("[push-to-qbt] storage loaded:", JSON.stringify(s));
-  urlEl.value         = s.qbtUrl;
-  userEl.value        = s.qbtUsername;
-  passEl.value        = s.qbtPassword;
-  interceptEl.checked = s.interceptClicks;
-  pauseEl.checked     = s.pauseOnAdd;
-  notifEl.checked     = s.showNotifications;
+  urlEl.value           = s.qbtUrl;
+  userEl.value          = s.qbtUsername;
+  passEl.value          = s.qbtPassword;
+  interceptEl.checked   = s.interceptClicks;
+  headCheckEl.checked   = s.interceptHeadCheck;
+  pauseEl.checked       = s.pauseOnAdd;
+  categoryEl.value      = s.category;
+  savePathEl.value      = s.savePath;
+  notifEl.checked       = s.showNotifications;
+  updateInterceptOptions();
 }).catch((e) => {
   console.error("[push-to-qbt] storage.get failed:", e);
 });
+
+interceptEl.addEventListener("change", updateInterceptOptions);
 
 // -- save ------------------------------------------------------------------
 
@@ -41,7 +59,10 @@ btnSave.addEventListener("click", () => {
     qbtUsername:       userEl.value.trim(),
     qbtPassword:       passEl.value,
     interceptClicks:   interceptEl.checked,
+    interceptHeadCheck: headCheckEl.checked,
     pauseOnAdd:        pauseEl.checked,
+    category:          categoryEl.value.trim(),
+    savePath:          savePathEl.value.trim(),
     showNotifications: notifEl.checked,
   };
   browser.storage.local.set(settings).then(() => {

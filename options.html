@@ -2,11 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Push to qBittorrent — Settings</title>
+  <title>Push to qBittorrent - Settings</title>
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
-  <h1>Push to qBittorrent — Settings</h1>
+  <h1>Push to qBittorrent</h1>
+
+  <!-- Connection -->
+  <h2>Connection</h2>
 
   <div class="field">
     <label for="qbt-url">qBittorrent WebUI URL</label>
@@ -14,36 +17,92 @@
   </div>
 
   <div class="field">
-    <label for="qbt-user">Username (leave blank if none)</label>
-    <input type="text" id="qbt-user" placeholder="admin" value="">
+    <label for="qbt-user">Username</label>
+    <input type="text" id="qbt-user" placeholder="Leave blank if authentication is disabled">
   </div>
 
   <div class="field">
-    <label for="qbt-pass">Password (leave blank if none)</label>
-    <input type="password" id="qbt-pass" value="">
-  </div>
-
-  <div class="toggle-row">
-    <input type="checkbox" id="intercept-clicks" checked>
-    <span>Intercept magnet/torrent link clicks (single-click to send)</span>
-  </div>
-
-  <div class="toggle-row">
-    <input type="checkbox" id="pause-on-add">
-    <span>Add torrents in paused state</span>
-  </div>
-
-  <div class="toggle-row">
-    <input type="checkbox" id="notifications" checked>
-    <span>Show desktop notifications on success</span>
+    <label for="qbt-pass">Password</label>
+    <input type="password" id="qbt-pass" placeholder="Leave blank if authentication is disabled">
   </div>
 
   <div class="actions">
     <button id="btn-save">Save</button>
     <button id="btn-test">Test connection</button>
   </div>
-
   <div id="status"></div>
+
+  <!-- Click interception -->
+  <h2>Click Interception</h2>
+
+  <div class="toggle-row">
+    <input type="checkbox" id="intercept-clicks">
+    <label class="toggle-label" for="intercept-clicks">
+      <span>Intercept magnet and torrent link clicks</span>
+      <small>
+        When enabled, clicking a recognised torrent link sends it directly to
+        qBittorrent instead of opening the system torrent client or triggering
+        a browser download. The right-click menu always works regardless of
+        this setting.
+      </small>
+    </label>
+  </div>
+
+  <div class="indent" id="intercept-options">
+    <p style="font-size:12px;color:#888;margin-bottom:10px">
+      Automatically recognised without any network request:
+      <code style="color:#aaa">magnet:</code> links,
+      links ending in <code style="color:#aaa">.torrent</code>,
+      Jackett and Prowlarr download links.
+    </p>
+    <div class="toggle-row">
+      <input type="checkbox" id="intercept-head-check">
+      <label class="toggle-label" for="intercept-head-check">
+        <span>Also check ambiguous links (HEAD request)</span>
+        <small>
+          For HTTP links without a recognisable pattern, sends a HEAD request
+          to check the Content-Type header. Slower and may interfere with
+          sites that use click-tracking redirects or that don't support HEAD.
+          Only enable if you use torrent sites that serve .torrent files
+          without the extension in the URL.
+        </small>
+      </label>
+    </div>
+  </div>
+
+  <!-- Adding torrents -->
+  <h2>Adding Torrents</h2>
+
+  <div class="toggle-row">
+    <input type="checkbox" id="pause-on-add">
+    <label class="toggle-label" for="pause-on-add">
+      <span>Add torrents in paused state</span>
+      <small>Torrents are added but not started automatically.</small>
+    </label>
+  </div>
+
+  <div class="field">
+    <label for="category">Default category</label>
+    <input type="text" id="category" placeholder="e.g. Movies, TV, Music (leave blank for none)">
+    <p class="hint">Assigns this category to every torrent added via the extension. The category must already exist in qBittorrent, or leave blank.</p>
+  </div>
+
+  <div class="field">
+    <label for="save-path">Override save path</label>
+    <input type="text" id="save-path" placeholder="e.g. /downloads/complete (leave blank for qBittorrent default)">
+    <p class="hint">Absolute path on the machine running qBittorrent. Leave blank to use qBittorrent's configured default location.</p>
+  </div>
+
+  <!-- Notifications -->
+  <h2>Notifications</h2>
+
+  <div class="toggle-row">
+    <input type="checkbox" id="notifications" checked>
+    <label class="toggle-label" for="notifications">
+      <span>Show desktop notifications on success</span>
+      <small>Error notifications are always shown regardless of this setting.</small>
+    </label>
+  </div>
 
   <script src="options.js"></script>
 </body>

@@ -9,8 +9,14 @@ const DEFAULT_SETTINGS = {
   qbtUrl: "http://localhost:8080",
   qbtUsername: "",
   qbtPassword: "",
-  interceptClicks: true,
+  // Click interception
+  interceptClicks: false,
+  interceptHeadCheck: false,
+  // Torrent add options
   pauseOnAdd: false,
+  category: "",
+  savePath: "",
+  // UX
   showNotifications: true,
 };
 
@@ -22,35 +28,22 @@ function getSettings() {
 
 async function buildMenus() {
   try { await browser.menus.removeAll(); } catch (e) { /* ignore */ }
-
-  browser.menus.create({
-    id: "qbt-link",
-    title: "Send to qBittorrent",
-    contexts: ["link"],
-  });
-
-  browser.menus.create({
-    id: "qbt-selection",
-    title: "Send selected magnet to qBittorrent",
-    contexts: ["selection"],
-  });
-
+  browser.menus.create({ id: "qbt-link",      title: "Send to qBittorrent", contexts: ["link"] });
+  browser.menus.create({ id: "qbt-selection", title: "Send selected magnet to qBittorrent", contexts: ["selection"] });
   console.log("[push-to-qbt] context menus registered");
 }
 
 browser.runtime.onInstalled.addListener(buildMenus);
 browser.runtime.onStartup.addListener(buildMenus);
-buildMenus(); // also covers hot-reload during development
+buildMenus();
 
 // --- context-menu click handler ---------------------------------------------
 
 browser.menus.onClicked.addListener(async (info) => {
   const settings = await getSettings();
-
   if (info.menuItemId === "qbt-link") {
     const url = (info.linkUrl || "").trim();
     if (url) await addToQbt(url, settings);
-
   } else if (info.menuItemId === "qbt-selection") {
     const text = (info.selectionText || "").trim();
     if (text.startsWith("magnet:")) {
@@ -68,25 +61,22 @@ browser.runtime.onMessage.addListener((msg) => {
     return getSettings().then((s) => addToQbt(msg.url, s));
   }
   if (msg.type === "CHECK_URL") {
-    return isTorrentUrl(msg.url); // returns Promise<bool>
+    return isTorrentUrl(msg.url); // Promise<bool>
   }
   if (msg.type === "OPEN_URL") {
     browser.tabs.create({ url: msg.url });
   }
 });
 
-// --- HEAD check: is this URL a .torrent download? ---------------------------
+// --- HEAD check -------------------------------------------------------------
 
 async function isTorrentUrl(url) {
   try {
     const resp = await fetch(url, { method: "HEAD" });
     const ct = (resp.headers.get("content-type") || "").toLowerCase();
     const cd = (resp.headers.get("content-disposition") || "").toLowerCase();
-
     if (ct.includes("bittorrent") || ct.includes("x-torrent")) return true;
-    // Generic binary - only accept if filename hint says .torrent
     if (ct.includes("octet-stream") && cd.includes(".torrent")) return true;
-
     return false;
   } catch (e) {
     console.warn("[push-to-qbt] HEAD check failed:", e.message);
@@ -97,7 +87,9 @@ async function isTorrentUrl(url) {
 // --- qBittorrent API --------------------------------------------------------
 
 async function qbtLogin(settings) {
-  if (!settings.qbtUrl) throw new Error("qBittorrent URL is not configured. Open the extension settings.");
+  if (!settings.qbtUrl) {
+    throw new Error("qBittorrent URL not configured. Open the extension settings.");
+  }
   const base = settings.qbtUrl.replace(/\/$/, "");
   let resp;
   try {
@@ -113,31 +105,31 @@ async function qbtLogin(settings) {
     throw new Error(`Cannot reach qBittorrent at ${settings.qbtUrl}: ${e.message}`);
   }
   const text = await resp.text();
-  if (text.trim() !== "Ok.") {
-    throw new Error(`qBittorrent login failed: ${text.trim()}`);
-  }
+  if (text.trim() !== "Ok.") throw new Error(`qBittorrent login failed: ${text.trim()}`);
+}
+
+function buildAddParams(settings) {
+  const p = new URLSearchParams();
+  if (settings.pauseOnAdd) p.set("paused", "true");
+  if (settings.category)   p.set("category", settings.category);
+  if (settings.savePath)   p.set("savepath", settings.savePath);
+  return p;
 }
 
 async function addToQbt(url, settings) {
   console.log("[push-to-qbt] addToQbt:", url.slice(0, 80));
   const base = (settings.qbtUrl || "").replace(/\/$/, "");
 
-  // Decide how to add:
-  // - .torrent extension: proxy through extension so browser session cookies
-  //   are included (needed for private trackers)
-  // - everything else (magnets, Jackett URLs, etc.): pass URL directly so
-  //   qBittorrent fetches it (handles redirects, API keys, etc.)
+  // .torrent extension: proxy through browser (preserves session cookies for
+  // private trackers). Everything else: hand the URL directly to qBittorrent.
   const useProxy = url.startsWith("http") && /\.torrent(\?|$)/i.test(url);
-
-  const isMagnet = url.startsWith("magnet:");
-  const label = isMagnet ? "Magnet added" : "Torrent added";
+  const label = url.startsWith("magnet:") ? "Magnet added" : "Torrent added";
 
   try {
     await qbtLogin(settings);
     const addUrl = `${base}/api/v2/torrents/add`;
 
     if (useProxy) {
-      // Fetch the .torrent file using the browser's cookies, then upload
       let torrentResp;
       try {
         torrentResp = await fetch(url, { credentials: "include" });
@@ -148,13 +140,13 @@ async function addToQbt(url, settings) {
       const blob = await torrentResp.blob();
       const fd = new FormData();
       fd.append("torrents", blob, "file.torrent");
-      if (settings.pauseOnAdd) fd.append("paused", "true");
+      buildAddParams(settings).forEach((v, k) => fd.append(k, v));
       const resp = await fetch(addUrl, { method: "POST", body: fd, credentials: "include" });
       const text = await resp.text();
       if (text.trim() !== "Ok.") throw new Error(`qBittorrent API: ${text.trim()}`);
     } else {
-      const body = new URLSearchParams({ urls: url });
-      if (settings.pauseOnAdd) body.set("paused", "true");
+      const body = buildAddParams(settings);
+      body.set("urls", url);
       const resp = await fetch(addUrl, { method: "POST", body, credentials: "include" });
       const text = await resp.text();
       if (text.trim() !== "Ok.") throw new Error(`qBittorrent API: ${text.trim()}`);
