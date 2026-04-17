@@ -50,8 +50,12 @@
 
   "browser_specific_settings": {
     "gecko": {
-      "id": "push-to-qbittorrent@local",
-      "strict_min_version": "109.0"
+      "id": "push-to-qbittorrent@krulkrul.github",
+      "strict_min_version": "109.0",
+      "data_collection_permissions": {
+        "required": [],
+        "optional": []
+      }
     }
   }
 }
