@@ -1,0 +1,65 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  max-width: 520px;
+  margin: 40px auto;
+  padding: 0 20px;
+  background: #121212;
+  color: #ddd;
+}
+h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: #4fc3f7;
+}
+.field { margin-bottom: 16px; }
+label {
+  display: block;
+  margin-bottom: 4px;
+  color: #aaa;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+input[type=text], input[type=password], input[type=url] {
+  width: 100%;
+  padding: 8px 10px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #eee;
+  font-size: 14px;
+}
+input:focus { outline: none; border-color: #4fc3f7; }
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.toggle-row input[type=checkbox] { cursor: pointer; width: 16px; height: 16px; }
+.toggle-row span { color: #ccc; }
+.actions { display: flex; gap: 10px; margin-top: 24px; }
+button {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+#btn-save { background: #0d47a1; color: #fff; }
+#btn-save:hover { background: #1565c0; }
+#btn-test { background: #333; color: #ccc; }
+#btn-test:hover { background: #444; }
+#status {
+  margin-top: 14px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  display: none;
+}
+#status.ok  { display: block; background: #1b4332; color: #74c69d; }
+#status.err { display: block; background: #4a1942; color: #f78fb3; }
+#status.info{ display: block; background: #1a237e; color: #90caf9; }

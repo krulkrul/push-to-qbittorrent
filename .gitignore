@@ -1,0 +1,6 @@
+*.xpi
+__pycache__/
+*.pyc
+.web-ext-artifacts/
+node_modules/
+/tmp/

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Push to qBittorrent</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <h1>Push to qBittorrent</h1>
+
+  <div id="status" class="status">Checking connection…</div>
+
+  <label>
+    <input type="checkbox" id="intercept-clicks" checked>
+    Intercept magnet/torrent clicks
+  </label>
+
+  <label>
+    <input type="checkbox" id="pause-on-add">
+    Add torrents paused
+  </label>
+
+  <div class="row">
+    <button id="btn-settings">Settings</button>
+    <button id="btn-test">Test connection</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

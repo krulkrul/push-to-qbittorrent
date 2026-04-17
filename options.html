@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Push to qBittorrent — Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <h1>Push to qBittorrent — Settings</h1>
+
+  <div class="field">
+    <label for="qbt-url">qBittorrent WebUI URL</label>
+    <input type="url" id="qbt-url" placeholder="http://localhost:8080" value="http://localhost:8080">
+  </div>
+
+  <div class="field">
+    <label for="qbt-user">Username (leave blank if none)</label>
+    <input type="text" id="qbt-user" placeholder="admin" value="">
+  </div>
+
+  <div class="field">
+    <label for="qbt-pass">Password (leave blank if none)</label>
+    <input type="password" id="qbt-pass" value="">
+  </div>
+
+  <div class="toggle-row">
+    <input type="checkbox" id="intercept-clicks" checked>
+    <span>Intercept magnet/torrent link clicks (single-click to send)</span>
+  </div>
+
+  <div class="toggle-row">
+    <input type="checkbox" id="pause-on-add">
+    <span>Add torrents in paused state</span>
+  </div>
+
+  <div class="toggle-row">
+    <input type="checkbox" id="notifications" checked>
+    <span>Show desktop notifications on success</span>
+  </div>
+
+  <div class="actions">
+    <button id="btn-save">Save</button>
+    <button id="btn-test">Test connection</button>
+  </div>
+
+  <div id="status"></div>
+
+  <script src="options.js"></script>
+</body>
+</html>
