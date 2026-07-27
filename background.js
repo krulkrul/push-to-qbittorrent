@@ -24,6 +24,49 @@ function getSettings() {
   return browser.storage.local.get(DEFAULT_SETTINGS);
 }
 
+// --- Origin header rewrite ---------------------------------------------------
+// qBittorrent rejects any request whose Origin header doesn't match its own
+// host:port ("Origin header & Target origin mismatch"). fetch() from an
+// extension background page always sends the real moz-extension:// origin,
+// which can't be omitted or overridden via fetch() itself, so rewrite it here
+// via webRequest for requests going to the configured qBittorrent URL.
+
+let cachedQbtOrigin = null;
+
+function updateCachedQbtOrigin(qbtUrl) {
+  try {
+    cachedQbtOrigin = qbtUrl ? new URL(qbtUrl).origin : null;
+  } catch (e) {
+    cachedQbtOrigin = null;
+  }
+}
+
+getSettings().then((s) => updateCachedQbtOrigin(s.qbtUrl));
+
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.qbtUrl) {
+    updateCachedQbtOrigin(changes.qbtUrl.newValue);
+  }
+});
+
+browser.webRequest.onBeforeSendHeaders.addListener(
+  (details) => {
+    if (!cachedQbtOrigin) return {};
+    let reqOrigin;
+    try {
+      reqOrigin = new URL(details.url).origin;
+    } catch (e) {
+      return {};
+    }
+    if (reqOrigin !== cachedQbtOrigin) return {};
+    const headers = details.requestHeaders.filter((h) => h.name.toLowerCase() !== "origin");
+    headers.push({ name: "Origin", value: cachedQbtOrigin });
+    return { requestHeaders: headers };
+  },
+  { urls: ["<all_urls>"] },
+  ["blocking", "requestHeaders"]
+);
+
 // --- context menus ----------------------------------------------------------
 
 async function buildMenus() {
@@ -104,8 +147,13 @@ async function qbtLogin(settings) {
   } catch (e) {
     throw new Error(`Cannot reach qBittorrent at ${settings.qbtUrl}: ${e.message}`);
   }
+  // Success is HTTP 204 with no body (qBittorrent 5.x+) or HTTP 200 with body
+  // "Ok." (older versions). Wrong credentials return HTTP 200 with body
+  // "Fails.", so resp.ok alone isn't a reliable success signal here.
+  if (resp.status === 204) return;
   const text = await resp.text();
-  if (text.trim() !== "Ok.") throw new Error(`qBittorrent login failed: ${text.trim()}`);
+  if (resp.ok && text.trim() === "Ok.") return;
+  throw new Error(`qBittorrent login failed: ${text.trim() || `HTTP ${resp.status}`}`);
 }
 
 function buildAddParams(settings) {
@@ -142,14 +190,12 @@ async function addToQbt(url, settings) {
       fd.append("torrents", blob, "file.torrent");
       buildAddParams(settings).forEach((v, k) => fd.append(k, v));
       const resp = await fetch(addUrl, { method: "POST", body: fd, credentials: "include" });
-      const text = await resp.text();
-      if (text.trim() !== "Ok.") throw new Error(`qBittorrent API: ${text.trim()}`);
+      if (!resp.ok) throw new Error(`qBittorrent API: HTTP ${resp.status} ${(await resp.text()).trim()}`);
     } else {
       const body = buildAddParams(settings);
       body.set("urls", url);
       const resp = await fetch(addUrl, { method: "POST", body, credentials: "include" });
-      const text = await resp.text();
-      if (text.trim() !== "Ok.") throw new Error(`qBittorrent API: ${text.trim()}`);
+      if (!resp.ok) throw new Error(`qBittorrent API: HTTP ${resp.status} ${(await resp.text()).trim()}`);
     }
 
     const shortUrl = url.length > 80 ? url.slice(0, 77) + "..." : url;

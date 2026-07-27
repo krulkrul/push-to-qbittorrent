@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-EXTENSION_ID="push-to-qbittorrent@local"
+EXTENSION_ID="push-to-qbittorrent@krulkrul.github"
 FLATPAK_APP="io.gitlab.librewolf-community"
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 XPI="$BASE_DIR/push-to-qbittorrent.xpi"

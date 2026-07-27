@@ -54,8 +54,15 @@ async function testConnection(s) {
       body: new URLSearchParams({ username: s.qbtUsername, password: s.qbtPassword }),
       credentials: "include",
     });
-    const text = await loginResp.text();
-    if (text.trim() !== "Ok.") throw new Error(`Login failed: ${text.trim()}`);
+    // Success is HTTP 204 with no body (qBittorrent 5.x+) or HTTP 200 with
+    // body "Ok." (older versions). Wrong credentials return HTTP 200 with
+    // body "Fails.", so loginResp.ok alone isn't a reliable success signal.
+    if (loginResp.status !== 204) {
+      const text = await loginResp.text();
+      if (!(loginResp.ok && text.trim() === "Ok.")) {
+        throw new Error(`Login failed: ${text.trim() || `HTTP ${loginResp.status}`}`);
+      }
+    }
     const verResp = await fetch(`${base}/api/v2/app/version`, { credentials: "include" });
     const ver = await verResp.text();
     setStatus("ok", `Connected - qBittorrent ${ver.trim()}`);

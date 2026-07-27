@@ -67,6 +67,7 @@ Install via `about:addons` → gear icon → **Install Add-on From File**.
 - **No external dependencies**: plain ES2020, no bundler needed.
 - **All JS must be ASCII-only**: non-ASCII characters (em dashes, ellipsis, box-drawing) cause Firefox to silently fail loading the script.
 - **No `content_security_policy` key in manifest**: a custom CSP causes Firefox's auto-generated background page to fail loading `background.js`.
+- **Origin header rewrite via `webRequest`**: qBittorrent's WebUI rejects any request whose `Origin` header doesn't match its own host:port ("Origin header & Target origin mismatch"), independent of and not controlled by the CSRF/Host-header-validation toggles in qBittorrent's own settings. `fetch()` from an extension background page always sends the real `moz-extension://` origin, which can't be set or omitted via `fetch()` itself, so `background.js` uses `browser.webRequest.onBeforeSendHeaders` (requires `webRequest` + `webRequestBlocking` permissions) to rewrite `Origin` to match the configured `qbtUrl` for requests going to that host.
 
 ## Torrent detection tiers (content.js)
 
